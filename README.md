@@ -1,30 +1,29 @@
-# ✈️ Travel Planner - Group Itinerary Planning App
+# Travel Planner - Group Itinerary Planning App
 
 Travel Planner is a premium full-stack web application designed for group travelers to plan itineraries, vote on booking options, track expenses, chat, and keep up with travel tools collectively.
 
----
 
-## 🚀 Key Features
 
-### 🔒 User Authentication & Personalization
+##  Key Features
+
+###  User Authentication & Personalization
 * **Registration & Login**: Secure credential checking using SHA-256 password hashing.
-* **Customized Dashboard Loading**: Users only see and interact with group trips they are registered members of (maintaining compatibility with seeded test users `Alex`, `Jordan`, `Taylor`, and `Sam`).
+* **Customized Dashboard Loading**: Users only see and interact with group trips they are registered members of (maintaining compatibility with seeded test users `chethana`, `rachana`, `srithan`, and `Swaran`).
 
-### 🗺️ Collaborative Trip Dashboards
+###  Collaborative Trip Dashboards
 * **Itinerary Timeline**: Add, review, or delete travel options (Flights, Hotels, Trains, Buses) directly in a group timeline.
 * **Consensus Voting**: An interactive upvote/downvote board allowing group members to reach a consensus on flights and hotels.
 * **Expense Splitter**: Log expenditures, select participants, and see automated settlement balances showing who owes whom.
 * **Real-time Group Chat**: Share planning suggestions directly inside the trip dashboard.
 
-### 🧳 Interactive Travel Utilities
+###  Interactive Travel Utilities
 * **Pro Flight Tracker**: Lookup live flight status details (e.g. Flight `6E-6015`).
 * **Visa Assistance**: Real-time checklist, processing duration, and fees for UAE, Schengen, Thailand, Singapore, and USA.
 * **Fare Alerts**: Pin notification targets when fares drop below threshold pricing.
 * **AI Chat Bot & FAQ**: Get immediate answers on voting, split bills, and booking procedures.
 
----
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 * **Frontend**: React.js, Vite, TypeScript, Lucide Icons, Vanilla CSS (Premium responsive custom theme).
 * **Backend**: Node.js, Express, TypeScript, UUID.
@@ -32,7 +31,7 @@ Travel Planner is a premium full-stack web application designed for group travel
 
 ---
 
-## 💻 Local Setup & Development
+##  Local Setup & Development
 
 ### Prerequisites
 * [Node.js](https://nodejs.org/) (v18 or higher)
