@@ -7,7 +7,15 @@ import { ItineraryTimeline } from './components/Planner/ItineraryTimeline';
 import { VotingBoard } from './components/Collab/VotingBoard';
 import { ExpenseSplitter } from './components/Budget/ExpenseSplitter';
 import { ChatBoard } from './components/Collab/ChatBoard';
+import { AuthModal } from './components/Layout/AuthModal';
 import { GroupTrip, Expense } from './types';
+import { 
+  FlightTrackerModal, 
+  CreditCardModal, 
+  VisaModal, 
+  FareAlertModal, 
+  CustomerServiceModal 
+} from './components/Planner/UtilityModals';
 import { 
   Calendar, 
   Users, 
@@ -23,7 +31,13 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<string>('Alex');
+  // Authentication states
+  const [currentUserProfile, setCurrentUserProfile] = useState<{ username: string; name: string } | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+
+  // Utility modals states
+  const [activeUtilityModal, setActiveUtilityModal] = useState<'tracker' | 'card' | 'visa' | 'alert' | 'service' | null>(null);
+
   const [currentView, setCurrentView] = useState<'home' | 'results' | 'planner'>('home');
   const [trips, setTrips] = useState<GroupTrip[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string>('');
@@ -50,28 +64,53 @@ export default function App() {
   // Sub-tabs on the planner dashboard
   const [plannerTab, setPlannerTab] = useState<'timeline' | 'votes' | 'expenses' | 'chat'>('timeline');
 
+  // Check cached user profile on mount
   useEffect(() => {
-    fetchTrips();
+    const cached = localStorage.getItem('tp_user_profile');
+    if (cached) {
+      try {
+        setCurrentUserProfile(JSON.parse(cached));
+      } catch {
+        localStorage.removeItem('tp_user_profile');
+      }
+    }
     fetchFlightDeals();
   }, []);
 
+  // Pre-populate members list when logged in user changes
+  useEffect(() => {
+    if (currentUserProfile) {
+      setNewTripMembers(`${currentUserProfile.name}, Alex, Jordan, Taylor`);
+    } else {
+      setNewTripMembers('Alex, Jordan, Taylor, Sam');
+    }
+  }, [currentUserProfile]);
+
+  // Fetch trips when logged in user profile updates
+  useEffect(() => {
+    fetchTrips();
+  }, [currentUserProfile]);
+
+  // Fetch hotel deals when active city changes
   useEffect(() => {
     fetchHotelDeals(hotelCity);
   }, [hotelCity]);
 
   const fetchTrips = async () => {
     try {
-      const res = await fetch('/api/groups');
+      const usernameParam = currentUserProfile ? `?username=${encodeURIComponent(currentUserProfile.username)}` : '';
+      const res = await fetch(`/api/groups${usernameParam}`);
       const data = await res.json();
       setTrips(data);
-      if (data.length > 0 && !selectedTripId) {
+      if (data.length > 0) {
         setSelectedTripId(data[0].id);
+      } else {
+        setSelectedTripId('');
       }
     } catch (err) {
       console.error('Error fetching group trips:', err);
     }
   };
-
 
   const fetchHotelDeals = async (city: string) => {
     try {
@@ -118,6 +157,10 @@ export default function App() {
 
   const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUserProfile) {
+      setShowAuthModal(true);
+      return;
+    }
     const membersArr = newTripMembers.split(',').map(m => m.trim()).filter(Boolean);
     
     try {
@@ -140,7 +183,6 @@ export default function App() {
       // Reset form
       setNewTripName('');
       setNewTripDest('');
-      setNewTripMembers('Alex, Jordan, Taylor, Sam');
       
       setCurrentView('planner');
       setPlannerTab('timeline');
@@ -150,6 +192,11 @@ export default function App() {
   };
 
   const handleAddToItinerary = async (tripId: string, item: any) => {
+    if (!currentUserProfile) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/groups/${tripId}/itinerary`, {
         method: 'POST',
@@ -161,7 +208,7 @@ export default function App() {
           dateTime: item.dateTime,
           price: item.price,
           details: item.details,
-          addedBy: currentUser
+          addedBy: currentUserProfile.name
         })
       });
       const updatedTrip = await res.json();
@@ -190,13 +237,18 @@ export default function App() {
   };
 
   const handleCastVote = async (itemId: string, voteVal: 1 | -1 | 0) => {
+    if (!currentUserProfile) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/groups/${selectedTripId}/votes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemId,
-          user: currentUser,
+          user: currentUserProfile.name,
           vote: voteVal
         })
       });
@@ -234,12 +286,17 @@ export default function App() {
   };
 
   const handleSendMessage = async (text: string) => {
+    if (!currentUserProfile) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/groups/${selectedTripId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user: currentUser,
+          user: currentUserProfile.name,
           text
         })
       });
@@ -250,28 +307,57 @@ export default function App() {
     }
   };
 
-  // Scroll to collaborative section
   const handleScrollToPlanner = () => {
+    if (!currentUserProfile) {
+      setShowAuthModal(true);
+      return;
+    }
     const el = document.getElementById('collaborative-planner-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
+  const handleOpenPlanTrip = () => {
+    if (!currentUserProfile) {
+      setShowAuthModal(true);
+      return;
+    }
+    setShowCreateModal(true);
+  };
+
+  const handleLoginSuccess = (profile: { username: string; name: string }) => {
+    setCurrentUserProfile(profile);
+    localStorage.setItem('tp_user_profile', JSON.stringify(profile));
+  };
+
+  const handleLogout = () => {
+    setCurrentUserProfile(null);
+    localStorage.removeItem('tp_user_profile');
+    setTrips([]);
+    setSelectedTripId('');
+    setCurrentView('home');
+  };
 
   const activeTrip = trips.find(t => t.id === selectedTripId);
 
   return (
     <div className="app-container">
       <Header 
-        currentUser={currentUser} 
-        onUserChange={setCurrentUser} 
+        currentUserProfile={currentUserProfile}
+        onLogout={handleLogout}
+        onOpenLogin={() => setShowAuthModal(true)}
+        onOpenCustomerService={() => setActiveUtilityModal('service')}
         onGoHome={() => setCurrentView('home')} 
         currentView={currentView}
         activeTab={searchType}
         setActiveTab={setSearchType}
         onNavigateView={(view) => {
           if (view === 'planner') {
+            if (!currentUserProfile) {
+              setShowAuthModal(true);
+              return;
+            }
             if (trips.length > 0) {
               if (!selectedTripId) setSelectedTripId(trips[0].id);
               setCurrentView('planner');
@@ -300,7 +386,7 @@ export default function App() {
             <section className="do-more-section">
               <h2 className="section-heading-bold">Do More With Travel Planner</h2>
               <div className="do-more-grid">
-                <div className="do-more-card">
+                <div className="do-more-card clickable-action-card" onClick={() => setActiveUtilityModal('tracker')}>
                   <div className="do-more-icon-wrap bg-blue-light">
                     <Compass size={24} className="do-more-icon text-blue" />
                     <span className="badge-promo badge-orange">Pro</span>
@@ -308,7 +394,7 @@ export default function App() {
                   <span className="do-more-label">Flight Tracker</span>
                 </div>
 
-                <div className="do-more-card">
+                <div className="do-more-card clickable-action-card" onClick={() => setActiveUtilityModal('card')}>
                   <div className="do-more-icon-wrap bg-green-light">
                     <CreditCard size={24} className="do-more-icon text-green" />
                     <span className="badge-promo badge-green">Free</span>
@@ -316,7 +402,7 @@ export default function App() {
                   <span className="do-more-label">Credit Card</span>
                 </div>
 
-                <div className="do-more-card">
+                <div className="do-more-card clickable-action-card" onClick={() => setActiveUtilityModal('visa')}>
                   <div className="do-more-icon-wrap bg-purple-light">
                     <span className="emoji-icon">📄</span>
                   </div>
@@ -330,14 +416,14 @@ export default function App() {
                   <span className="do-more-label font-bold text-orange">Group Booking</span>
                 </div>
 
-                <div className="do-more-card clickable-action-card" onClick={() => setShowCreateModal(true)}>
+                <div className="do-more-card clickable-action-card" onClick={handleOpenPlanTrip}>
                   <div className="do-more-icon-wrap bg-indigo-light">
                     <Sparkles size={24} className="do-more-icon text-indigo" />
                   </div>
                   <span className="do-more-label font-bold">Plan Trip</span>
                 </div>
 
-                <div className="do-more-card">
+                <div className="do-more-card clickable-action-card" onClick={() => setActiveUtilityModal('alert')}>
                   <div className="do-more-icon-wrap bg-yellow-light">
                     <Bell size={24} className="do-more-icon text-yellow" />
                   </div>
@@ -345,7 +431,6 @@ export default function App() {
                 </div>
               </div>
             </section>
-
 
             {/* Why Book With Travel Planner Section */}
             <section className="why-book-section">
@@ -443,6 +528,10 @@ export default function App() {
                         <button 
                           className="book-deal-btn"
                           onClick={() => {
+                            if (!currentUserProfile) {
+                              setShowAuthModal(true);
+                              return;
+                            }
                             if (trips.length > 0) {
                               const tripId = selectedTripId || trips[0].id;
                               handleAddToItinerary(tripId, {
@@ -508,6 +597,10 @@ export default function App() {
                       <button 
                         className="fare-book-btn"
                         onClick={() => {
+                          if (!currentUserProfile) {
+                            setShowAuthModal(true);
+                            return;
+                          }
                           if (trips.length > 0) {
                             const tripId = selectedTripId || trips[0].id;
                             handleAddToItinerary(tripId, {
@@ -616,22 +709,35 @@ export default function App() {
                 <div>
                   <h2 className="section-title">Your Group Travel Itineraries</h2>
                   <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>
-                    Select an active itinerary or create a new planner board to coordinate flights, hotels, expenses, and chats.
+                    Coordinate flights, hotels, expenses, and chats with your friends on this interactive dashboard.
                   </p>
                 </div>
-                <button className="secondary-btn" onClick={() => setShowCreateModal(true)}>
+                <button className="secondary-btn" onClick={handleOpenPlanTrip}>
                   <Plus size={16} /> Create Group Planner
                 </button>
               </div>
 
-              {trips.length === 0 ? (
+              {!currentUserProfile ? (
+                <div style={{ textAlign: 'center', padding: '50px 20px', background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                  <Users size={48} style={{ color: '#94a3b8', marginBottom: '16px' }} />
+                  <p style={{ fontWeight: 700, fontSize: '18px' }}>Log In to View Your Itineraries</p>
+                  <p style={{ color: '#64748b', marginTop: '8px' }}>Please authenticate to access your shared group dashboards.</p>
+                  <button 
+                    className="submit-btn" 
+                    onClick={() => setShowAuthModal(true)} 
+                    style={{ margin: '20px auto 0' }}
+                  >
+                    Log In Now
+                  </button>
+                </div>
+              ) : trips.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 20px', background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                   <Calendar size={48} style={{ color: '#94a3b8', marginBottom: '16px' }} />
                   <p style={{ fontWeight: 700, fontSize: '18px' }}>No Group Trips Yet</p>
                   <p style={{ color: '#64748b', marginTop: '8px' }}>Create a group planner to coordinate dates, booking items, expenses, and chats!</p>
                   <button 
                     className="submit-btn" 
-                    onClick={() => setShowCreateModal(true)} 
+                    onClick={handleOpenPlanTrip} 
                     style={{ margin: '20px auto 0' }}
                   >
                     Get Started
@@ -774,7 +880,7 @@ export default function App() {
                 <VotingBoard 
                   itinerary={activeTrip.itinerary}
                   votes={activeTrip.votes}
-                  currentUser={currentUser}
+                  currentUser={currentUserProfile ? currentUserProfile.name : 'Guest'}
                   onCastVote={handleCastVote}
                 />
               )}
@@ -783,7 +889,7 @@ export default function App() {
                 <VotingBoard 
                   itinerary={activeTrip.itinerary}
                   votes={activeTrip.votes}
-                  currentUser={currentUser}
+                  currentUser={currentUserProfile ? currentUserProfile.name : 'Guest'}
                   onCastVote={handleCastVote}
                 />
               )}
@@ -800,7 +906,7 @@ export default function App() {
               {plannerTab === 'chat' && (
                 <ChatBoard 
                   messages={activeTrip.messages}
-                  currentUser={currentUser}
+                  currentUser={currentUserProfile ? currentUserProfile.name : 'Guest'}
                   onSendMessage={handleSendMessage}
                 />
               )}
@@ -884,6 +990,39 @@ export default function App() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Auth modal trigger */}
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {/* Flight status tracker modal */}
+      {activeUtilityModal === 'tracker' && (
+        <FlightTrackerModal onClose={() => setActiveUtilityModal(null)} />
+      )}
+
+      {/* Premium Credit Card application modal */}
+      {activeUtilityModal === 'card' && (
+        <CreditCardModal onClose={() => setActiveUtilityModal(null)} />
+      )}
+
+      {/* Visa lookup assistant modal */}
+      {activeUtilityModal === 'visa' && (
+        <VisaModal onClose={() => setActiveUtilityModal(null)} />
+      )}
+
+      {/* Fare target alert modal */}
+      {activeUtilityModal === 'alert' && (
+        <FareAlertModal onClose={() => setActiveUtilityModal(null)} />
+      )}
+
+      {/* FAQ + chatbot Customer support center modal */}
+      {activeUtilityModal === 'service' && (
+        <CustomerServiceModal onClose={() => setActiveUtilityModal(null)} />
       )}
 
       <Footer />

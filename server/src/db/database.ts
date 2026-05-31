@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { GroupTrip } from '../types';
+import crypto from 'node:crypto';
+import { GroupTrip, User } from '../types';
+
+export function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
 
 const dataDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) {
@@ -10,7 +15,7 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'db.json');
 
 // Initial seed data
-const initialData: { groups: GroupTrip[] } = {
+const initialData: { groups: GroupTrip[]; users: User[] } = {
   groups: [
     {
       id: 'goa-2026',
@@ -91,18 +96,29 @@ const initialData: { groups: GroupTrip[] } = {
         }
       ]
     }
+  ],
+  users: [
+    { username: 'Alex', passwordHash: hashPassword('alex123'), name: 'Alex (Leader)', email: 'alex@travelplanner.com' },
+    { username: 'Jordan', passwordHash: hashPassword('jordan123'), name: 'Jordan', email: 'jordan@travelplanner.com' },
+    { username: 'Taylor', passwordHash: hashPassword('taylor123'), name: 'Taylor', email: 'taylor@travelplanner.com' },
+    { username: 'Sam', passwordHash: hashPassword('sam123'), name: 'Sam', email: 'sam@travelplanner.com' }
   ]
 };
 
 // Simple lock-free JSON database reading/writing helper
-export function readDb(): { groups: GroupTrip[] } {
+export function readDb(): { groups: GroupTrip[]; users: User[] } {
   if (!fs.existsSync(dbPath)) {
     writeDb(initialData);
     return initialData;
   }
   try {
     const raw = fs.readFileSync(dbPath, 'utf8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed.users) {
+      parsed.users = initialData.users;
+      writeDb(parsed);
+    }
+    return parsed;
   } catch (err) {
     console.error('Error reading JSON database, resetting to seed data:', err);
     writeDb(initialData);
@@ -110,7 +126,7 @@ export function readDb(): { groups: GroupTrip[] } {
   }
 }
 
-export function writeDb(data: { groups: GroupTrip[] }) {
+export function writeDb(data: { groups: GroupTrip[]; users: User[] }) {
   fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
 }
 

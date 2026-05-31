@@ -8,7 +8,16 @@ const router = Router();
 // GET /api/groups - Get list of all group trips
 router.get('/', (req: Request, res: Response) => {
   const db = readDb();
-  // Return key overview details of trips
+  const { username } = req.query;
+
+  if (username) {
+    const userLower = (username as string).toLowerCase().trim();
+    const filtered = db.groups.filter(g => 
+      g.members.some(m => m.toLowerCase().trim() === userLower)
+    );
+    return res.json(filtered);
+  }
+
   res.json(db.groups);
 });
 

@@ -60,3 +60,11 @@ export interface SearchQuery {
   date: string;
   passengers: number;
 }
+
+export interface User {
+  username: string; // Used as unique identifier
+  passwordHash: string;
+  name: string;
+  email: string;
+}
+

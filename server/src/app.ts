@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import searchRoutes from './routes/search';
 import groupRoutes from './routes/groups';
+import authRoutes from './routes/auth';
 
 export function createApp(): express.Application {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp(): express.Application {
   });
 
   // API Routes
+  app.use('/api/auth', authRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/groups', groupRoutes);
 

@@ -1,9 +1,11 @@
 import React from 'react';
-import { Plane, Hotel, Train, Bus, Percent, HelpCircle, User, ChevronDown } from 'lucide-react';
+import { Plane, Hotel, Train, Bus, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
-  currentUser: string;
-  onUserChange: (user: string) => void;
+  currentUserProfile: { username: string; name: string } | null;
+  onLogout: () => void;
+  onOpenLogin: () => void;
+  onOpenCustomerService: () => void;
   onGoHome: () => void;
   currentView: 'home' | 'results' | 'planner';
   onNavigateView: (view: 'home' | 'planner') => void;
@@ -12,8 +14,10 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
-  currentUser, 
-  onUserChange, 
+  currentUserProfile, 
+  onLogout,
+  onOpenLogin,
+  onOpenCustomerService,
   onGoHome, 
   currentView,
   onNavigateView,
@@ -71,37 +75,70 @@ export const Header: React.FC<HeaderProps> = ({
       </nav>
 
       <div className="ixigo-header-right">
-        <div className="header-link-item">
-          <Percent size={15} />
-          <span>Offers</span>
-        </div>
-        <div className="header-link-item">
+        <div 
+          className="header-link-item" 
+          onClick={onOpenCustomerService} 
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
           <HelpCircle size={15} />
           <span>Customer Service</span>
         </div>
         
-        {/* User Switcher disguised as Log In profile */}
-        <div className="ixigo-profile-switcher">
-          <div className="profile-icon-box">
-            <User size={14} className="user-silhouette" />
-          </div>
-          <div className="profile-selector-wrap">
-            <span className="profile-label">Logged in:</span>
-            <div className="select-dropdown-container">
-              <select 
-                value={currentUser} 
-                onChange={(e) => onUserChange(e.target.value)}
-                className="ixigo-user-select"
-              >
-                <option value="Alex">Alex (Leader)</option>
-                <option value="Jordan">Jordan</option>
-                <option value="Taylor">Taylor</option>
-                <option value="Sam">Sam</option>
-              </select>
-              <ChevronDown size={12} className="dropdown-arrow-icon" />
+        {/* Auth profile controls */}
+        {currentUserProfile ? (
+          <div className="ixigo-profile-switcher" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="profile-icon-box" style={{ background: '#ec5b24', color: 'white', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontWeight: 800, fontSize: '12px' }}>{currentUserProfile.name.charAt(0)}</span>
             </div>
+            <div className="profile-selector-wrap" style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="profile-label" style={{ fontSize: '9px', fontWeight: 700, color: '#ec5b24', textTransform: 'uppercase' }}>Logged in</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{currentUserProfile.name}</span>
+            </div>
+            <button 
+              onClick={onLogout}
+              style={{
+                background: '#e2e8f0',
+                border: 'none',
+                color: '#475569',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                marginLeft: '8px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'white';
+                e.currentTarget.style.background = '#ef4444';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#475569';
+                e.currentTarget.style.background = '#e2e8f0';
+              }}
+            >
+              Logout
+            </button>
           </div>
-        </div>
+        ) : (
+          <button 
+            onClick={onOpenLogin}
+            className="submit-btn" 
+            style={{ 
+              padding: '8px 20px', 
+              fontSize: '13px', 
+              background: 'linear-gradient(135deg, #ec5b24, #f97316)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(236,91,36,0.2)'
+            }}
+          >
+            Log In / Sign Up
+          </button>
+        )}
       </div>
     </header>
   );
