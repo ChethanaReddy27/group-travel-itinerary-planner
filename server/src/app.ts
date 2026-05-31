@@ -1,5 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import fs from 'node:fs';
 import searchRoutes from './routes/search';
 import groupRoutes from './routes/groups';
 import authRoutes from './routes/auth';
@@ -31,6 +33,24 @@ export function createApp(): express.Application {
   app.use('/api/auth', authRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/groups', groupRoutes);
+
+  // Serve static client assets if client/dist exists
+  const clientDistPath = path.join(__dirname, '../../client/dist');
+  if (fs.existsSync(clientDistPath)) {
+    console.log(`Serving static client files from: ${clientDistPath}`);
+    app.use(express.static(clientDistPath));
+    
+    // Serve client index.html for all non-API routes
+    app.get('*', (req: Request, res: Response, next: NextFunction) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+      } else {
+        next();
+      }
+    });
+  } else {
+    console.log(`Client build not found at ${clientDistPath}. API server only mode active.`);
+  }
 
   // Global Error Handler
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

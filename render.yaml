@@ -1,23 +1,12 @@
 services:
   - type: web
-    name: travel-planner-backend-api
+    name: travel-planner-app
     env: node
     plan: free
-    rootDir: server
-    buildCommand: npm install
+    buildCommand: npm run build
     startCommand: npm start
     envVars:
       - key: PORT
         value: 3019
-
-  - type: static
-    name: travel-planner-frontend
-    env: static
-    plan: free
-    rootDir: client
-    buildCommand: npm install && npm run build
-    publishPath: dist
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://travel-planner-backend-api.onrender.com/api/*
+      - key: MONGODB_URI
+        sync: false

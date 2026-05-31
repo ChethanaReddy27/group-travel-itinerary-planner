@@ -4,11 +4,10 @@ import { createApp } from './app';
 const app = createApp();
 const PORT = Number(process.env.PORT) || 3019;
 
-const server = app.listen(PORT, '127.0.0.1', () => {
+const server = app.listen(PORT, () => {
   console.log('──────────────────────────────────────');
   console.log('  Group Travel Planner API started');
   console.log(`  Port:           ${PORT}`);
-  console.log(`  Host:           127.0.0.1`);
   console.log(`  Environment:    ${process.env.NODE_ENV || 'development'}`);
   console.log('──────────────────────────────────────');
 });

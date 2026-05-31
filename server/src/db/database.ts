@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { MongoClient, Db } from 'mongodb';
 import { GroupTrip, User } from '../types';
 
 export function hashPassword(password: string): string {
@@ -11,7 +12,6 @@ const dataDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
-
 const dbPath = path.join(dataDir, 'db.json');
 
 // Initial seed data
@@ -105,10 +105,10 @@ const initialData: { groups: GroupTrip[]; users: User[] } = {
   ]
 };
 
-// Simple lock-free JSON database reading/writing helper
-export function readDb(): { groups: GroupTrip[]; users: User[] } {
+// Local JSON file helpers
+function readJsonDb(): { groups: GroupTrip[]; users: User[] } {
   if (!fs.existsSync(dbPath)) {
-    writeDb(initialData);
+    writeJsonDb(initialData);
     return initialData;
   }
   try {
@@ -116,21 +116,166 @@ export function readDb(): { groups: GroupTrip[]; users: User[] } {
     const parsed = JSON.parse(raw);
     if (!parsed.users) {
       parsed.users = initialData.users;
-      writeDb(parsed);
+      writeJsonDb(parsed);
     }
     return parsed;
   } catch (err) {
-    console.error('Error reading JSON database, resetting to seed data:', err);
-    writeDb(initialData);
+    console.error('Error reading JSON database:', err);
     return initialData;
   }
 }
 
-export function writeDb(data: { groups: GroupTrip[]; users: User[] }) {
+function writeJsonDb(data: { groups: GroupTrip[]; users: User[] }) {
   fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// Mock Search Data Generators
+// MongoDB setup
+let mongoClient: MongoClient | null = null;
+let mongoDb: Db | null = null;
+let isMongoConnecting = false;
+
+export async function getDb(): Promise<Db | null> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    return null; // Fallback to JSON file database
+  }
+
+  if (mongoDb) {
+    return mongoDb;
+  }
+
+  if (isMongoConnecting) {
+    // Wait small amount and retry
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return getDb();
+  }
+
+  isMongoConnecting = true;
+  try {
+    console.log("Connecting to MongoDB Atlas...");
+    mongoClient = new MongoClient(uri);
+    await mongoClient.connect();
+    mongoDb = mongoClient.db();
+    console.log("Connected to MongoDB Atlas successfully.");
+
+    // Seed collections if empty
+    const usersCol = mongoDb.collection('users');
+    const groupsCol = mongoDb.collection('groups');
+
+    const userCount = await usersCol.countDocuments();
+    if (userCount === 0) {
+      console.log("Seeding MongoDB users...");
+      await usersCol.insertMany(initialData.users);
+    }
+
+    const groupCount = await groupsCol.countDocuments();
+    if (groupCount === 0) {
+      console.log("Seeding MongoDB groups...");
+      await groupsCol.insertMany(initialData.groups);
+    }
+
+  } catch (err) {
+    console.error("Failed to connect to MongoDB Atlas. Falling back to local JSON database.", err);
+    mongoDb = null;
+  } finally {
+    isMongoConnecting = false;
+  }
+
+  return mongoDb;
+}
+
+// Unified Async Database Operations
+export async function getUsers(): Promise<User[]> {
+  const db = await getDb();
+  if (db) {
+    return (await db.collection('users').find({}).toArray()) as any as User[];
+  }
+  return readJsonDb().users;
+}
+
+export async function getUserByUsername(username: string): Promise<User | null> {
+  const db = await getDb();
+  const lowerUser = username.toLowerCase().trim();
+  if (db) {
+    const user = await db.collection('users').findOne({ 
+      username: { $regex: new RegExp(`^${lowerUser}$`, 'i') } 
+    });
+    return user as any as User | null;
+  }
+  const localDb = readJsonDb();
+  return localDb.users.find(u => u.username.toLowerCase().trim() === lowerUser) || null;
+}
+
+export async function createUser(user: User): Promise<void> {
+  const db = await getDb();
+  if (db) {
+    await db.collection('users').insertOne(user);
+    return;
+  }
+  const localDb = readJsonDb();
+  localDb.users.push(user);
+  writeJsonDb(localDb);
+}
+
+export async function getGroups(username?: string): Promise<GroupTrip[]> {
+  const db = await getDb();
+  if (db) {
+    const filter: any = {};
+    if (username) {
+      const lowerUser = username.toLowerCase().trim();
+      filter.members = { $elemMatch: { $regex: new RegExp(`^${lowerUser}$`, 'i') } };
+    }
+    return (await db.collection('groups').find(filter).toArray()) as any as GroupTrip[];
+  }
+  
+  const localDb = readJsonDb();
+  if (username) {
+    const lowerUser = username.toLowerCase().trim();
+    return localDb.groups.filter(g => 
+      g.members.some(m => m.toLowerCase().trim() === lowerUser)
+    );
+  }
+  return localDb.groups;
+}
+
+export async function getGroupById(id: string): Promise<GroupTrip | null> {
+  const db = await getDb();
+  if (db) {
+    const trip = await db.collection('groups').findOne({ id });
+    return trip as any as GroupTrip | null;
+  }
+  const localDb = readJsonDb();
+  return localDb.groups.find(g => g.id === id) || null;
+}
+
+export async function createGroup(group: GroupTrip): Promise<void> {
+  const db = await getDb();
+  if (db) {
+    await db.collection('groups').insertOne(group);
+    return;
+  }
+  const localDb = readJsonDb();
+  localDb.groups.push(group);
+  writeJsonDb(localDb);
+}
+
+export async function updateGroup(group: GroupTrip): Promise<void> {
+  const db = await getDb();
+  if (db) {
+    // Exclude MongoDB _id if present in update to avoid modification error
+    const { _id, ...updateData } = group as any;
+    await db.collection('groups').replaceOne({ id: group.id }, updateData);
+    return;
+  }
+  const localDb = readJsonDb();
+  const index = localDb.groups.findIndex(g => g.id === group.id);
+  if (index !== -1) {
+    localDb.groups[index] = group;
+    writeJsonDb(localDb);
+  }
+}
+
+// Keep legacy generators intact
 export function generateMockFlights(from: string, to: string, date: string) {
   const providers = ['IndiGo', 'Air India', 'Vistara', 'Akasa Air', 'SpiceJet'];
   const flightNums = ['6E-2041', 'AI-865', 'UK-943', 'QP-1102', 'SG-324'];
@@ -342,4 +487,3 @@ export function generateMockFlightDeals(fromCity: string) {
     { id: 'fd-5', toCity: 'Ayodhya', state: 'Uttar Pradesh', date: 'Wed, 24 Jun', price: 2746 }
   ];
 }
-
