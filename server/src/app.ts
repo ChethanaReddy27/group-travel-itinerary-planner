@@ -1,0 +1,40 @@
+import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import searchRoutes from './routes/search';
+import groupRoutes from './routes/groups';
+
+export function createApp(): express.Application {
+  const app = express();
+
+  // Middleware
+  app.use(cors({ origin: true, credentials: true }));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // Request logger
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} - ${duration}ms`);
+    });
+    next();
+  });
+
+  // Health endpoint
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'travel-planner-api' });
+  });
+
+  // API Routes
+  app.use('/api/search', searchRoutes);
+  app.use('/api/groups', groupRoutes);
+
+  // Global Error Handler
+  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error('Unhandled server error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  });
+
+  return app;
+}

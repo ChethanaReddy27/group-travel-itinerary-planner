@@ -1,0 +1,11 @@
+# Node.js
+**/node_modules/
+**/dist/
+**/.env
+**/.system_generated/
+**/.gemini/
+**/.next/
+**/.vscode/
+
+# Local DB files
+server/data/db.json
