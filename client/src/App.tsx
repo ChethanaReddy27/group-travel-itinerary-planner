@@ -34,8 +34,6 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
 
   // Dynamic Mocks States
-  const [offers, setOffers] = useState<any[]>([]);
-  const [offerCategory, setOfferCategory] = useState<string>('all');
   const [hotelCity, setHotelCity] = useState<string>('New Delhi');
   const [hotelDeals, setHotelDeals] = useState<any[]>([]);
   const [flightDeals, setFlightDeals] = useState<any[]>([]);
@@ -52,10 +50,8 @@ export default function App() {
   // Sub-tabs on the planner dashboard
   const [plannerTab, setPlannerTab] = useState<'timeline' | 'votes' | 'expenses' | 'chat'>('timeline');
 
-  // Fetch all trips on mount & mock deals
   useEffect(() => {
     fetchTrips();
-    fetchOffers();
     fetchFlightDeals();
   }, []);
 
@@ -76,15 +72,6 @@ export default function App() {
     }
   };
 
-  const fetchOffers = async () => {
-    try {
-      const res = await fetch('/api/search/offers');
-      const data = await res.json();
-      setOffers(data);
-    } catch (err) {
-      console.error('Error fetching offers:', err);
-    }
-  };
 
   const fetchHotelDeals = async (city: string) => {
     try {
@@ -271,15 +258,6 @@ export default function App() {
     }
   };
 
-  // Filter offers by category
-  const filteredOffers = offers.filter(off => {
-    if (offerCategory === 'all') return true;
-    if (offerCategory === 'flight') return off.category === 'flight';
-    if (offerCategory === 'hotel') return off.category === 'hotel';
-    if (offerCategory === 'bank') return off.category === 'bank';
-    if (offerCategory === 'train') return off.category === 'train';
-    return true;
-  });
 
   const activeTrip = trips.find(t => t.id === selectedTripId);
 
@@ -368,60 +346,6 @@ export default function App() {
               </div>
             </section>
 
-            {/* Offers For You Section */}
-            <section className="offers-section">
-              <div className="offers-section-header">
-                <h2 className="section-heading-bold">Offers For You</h2>
-                <div className="offers-filter-pills">
-                  <button 
-                    className={`offer-pill ${offerCategory === 'all' ? 'active' : ''}`}
-                    onClick={() => setOfferCategory('all')}
-                  >
-                    All
-                  </button>
-                  <button 
-                    className={`offer-pill ${offerCategory === 'flight' ? 'active' : ''}`}
-                    onClick={() => setOfferCategory('flight')}
-                  >
-                    Flights
-                  </button>
-                  <button 
-                    className={`offer-pill ${offerCategory === 'hotel' ? 'active' : ''}`}
-                    onClick={() => setOfferCategory('hotel')}
-                  >
-                    Hotels
-                  </button>
-                  <button 
-                    className={`offer-pill ${offerCategory === 'bank' ? 'active' : ''}`}
-                    onClick={() => setOfferCategory('bank')}
-                  >
-                    Bank Offers
-                  </button>
-                  <button 
-                    className={`offer-pill ${offerCategory === 'train' ? 'active' : ''}`}
-                    onClick={() => setOfferCategory('train')}
-                  >
-                    Trains
-                  </button>
-                  <span className="view-all-offers-link">
-                    View All <ChevronRight size={14} />
-                  </span>
-                </div>
-              </div>
-
-              <div className="offers-carousel">
-                {filteredOffers.map((off) => (
-                  <div className="offer-carousel-card" key={off.id} style={{ background: off.bgColor }}>
-                    <div className="offer-tag-pill">{off.tag}</div>
-                    <div className="offer-card-details">
-                      <h3 className="offer-card-title">{off.title}</h3>
-                      <p className="offer-card-subtitle">{off.subtitle}</p>
-                    </div>
-                    <div className="offer-logo-watermark">{off.provider}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
 
             {/* Why Book With Travel Planner Section */}
             <section className="why-book-section">
